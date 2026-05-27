@@ -1,0 +1,87 @@
+From c7ac3a0fbecd6a927b2ebc8f8485c59b4a9bc022 Mon Sep 17 00:00:00 2001
+From: redvik <redvik@rockchip.myguest.virtualbox.org>
+Date: Mon, 25 May 2026 16:03:47 +0700
+Subject: [PATCH] force_mjpeg_and_fix_the_incorrect_timestamps
+
+---
+ libavdevice/v4l2.c | 41 ++++++++++++++++++++++++++++-------------
+ libavformat/mux.c  |  4 ++--
+ 2 files changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/libavdevice/v4l2.c b/libavdevice/v4l2.c
+index 6b7c5db..65e2772 100644
+--- a/libavdevice/v4l2.c
++++ b/libavdevice/v4l2.c
+@@ -1014,19 +1014,34 @@ static int v4l2_read_header(AVFormatContext *ctx)
+     avpriv_set_pts_info(st, 64, 1, 1000000); /* 64 bits pts in us */
+ 
+     if (s->pixel_format) {
+-        const AVCodecDescriptor *desc = avcodec_descriptor_get_by_name(s->pixel_format);
+-
+-        if (desc)
+-            ctx->video_codec_id = desc->id;
+-
+-        pix_fmt = av_get_pix_fmt(s->pixel_format);
+-
+-        if (pix_fmt == AV_PIX_FMT_NONE && !desc) {
+-            av_log(ctx, AV_LOG_ERROR, "No such input format: %s.\n",
+-                   s->pixel_format);
+-
+-            res = AVERROR(EINVAL);
+-            goto fail;
++ 		
++      	 /* ======= FORCE MJPEG FROM CAMERA WAY ======== */
++    	  if (!av_strcasecmp(s->pixel_format, "MJPG") || !av_strcasecmp(s->pixel_format, "MJPEG")) {
++    	  	av_log(ctx , AV_LOG_INFO, 
++    	  			"v4l2: forcing native MJPEG capture from camera\n");
++    	  	codec_id = AV_CODEC_ID_MJPEG;
++    	  	ctx->video_codec_id = AV_CODEC_ID_MJPEG;
++    	  	
++    	  	/* FORCE CODEC,  not a pixelformat */
++    	  	pix_fmt = AV_PIX_FMT_NONE;
++    	  	
++    	  	s->pixel_format = NULL;
++    	  			
++    	  } else {
++        	const AVCodecDescriptor *desc = avcodec_descriptor_get_by_name(s->pixel_format);
++
++        	if (desc)
++            	ctx->video_codec_id = desc->id;
++
++        	pix_fmt = av_get_pix_fmt(s->pixel_format);
++
++        	if (pix_fmt == AV_PIX_FMT_NONE && !desc) {
++            	av_log(ctx, AV_LOG_ERROR, "No such input format: %s.\n",
++            	       s->pixel_format);
++
++            	res = AVERROR(EINVAL);
++            	goto fail;
++            }
+         }
+     }
+ 
+diff --git a/libavformat/mux.c b/libavformat/mux.c
+index 90cc4ee..43b9b7c 100644
+--- a/libavformat/mux.c
++++ b/libavformat/mux.c
+@@ -568,7 +568,7 @@ static int compute_muxer_pkt_fields(AVFormatContext *s, AVStream *st, AVPacket *
+         ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) &&
+           st->codecpar->codec_type != AVMEDIA_TYPE_SUBTITLE &&
+           st->codecpar->codec_type != AVMEDIA_TYPE_DATA &&
+-          sti->cur_dts >= pkt->dts) || sti->cur_dts > pkt->dts)) {
++          sti->cur_dts > pkt->dts) || sti->cur_dts > pkt->dts)) {
+         av_log(s, AV_LOG_ERROR,
+                "compute_muxer_pkt_fields:Application provided invalid, non monotonically increasing dts to muxer in stream %d: %s >= %s\n",
+                st->index, av_ts2str(sti->cur_dts), av_ts2str(pkt->dts));
+@@ -810,7 +810,7 @@ static int prepare_input_packet(AVFormatContext *s, AVStream *st, AVPacket *pkt)
+         /* check that the dts are increasing (or at least non-decreasing,
+          * if the format allows it */
+         if (sti->cur_dts != AV_NOPTS_VALUE &&
+-            ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) && sti->cur_dts >= pkt->dts) ||
++            ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) && sti->cur_dts > pkt->dts) ||
+              sti->cur_dts > pkt->dts)) {
+             av_log(s, AV_LOG_ERROR,
+                    "prepare_input_packet:Application provided invalid, non monotonically increasing "
+-- 
+2.34.1
+

@@ -1,0 +1,51 @@
+From b874c873561c0cbeda5e0b9c72a8a598d8946f25 Mon Sep 17 00:00:00 2001
+From: redvik <redvik@rockchip.myguest.virtualbox.org>
+Date: Mon, 25 May 2026 14:18:36 +0700
+Subject: [PATCH] where i have a error
+
+---
+ libavformat/mux.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/libavformat/mux.c b/libavformat/mux.c
+index c7877c5..90cc4ee 100644
+--- a/libavformat/mux.c
++++ b/libavformat/mux.c
+@@ -558,7 +558,7 @@ static int compute_muxer_pkt_fields(AVFormatContext *s, AVStream *st, AVPacket *
+         sti->pts_buffer[0] = pkt->pts;
+         for (int i = 1; i < delay + 1 && sti->pts_buffer[i] == AV_NOPTS_VALUE; i++)
+             sti->pts_buffer[i] = pkt->pts + (i - delay - 1) * pkt->duration;
+-        for (int i = 0; i<delay && sti->pts_buffer[i] > sti->pts_buffer[i + 1]; i++)
++        for (int i = 0; i < delay && sti->pts_buffer[i] > sti->pts_buffer[i + 1]; i++)
+             FFSWAP(int64_t, sti->pts_buffer[i], sti->pts_buffer[i + 1]);
+ 
+         pkt->dts = sti->pts_buffer[0];
+@@ -570,7 +570,7 @@ static int compute_muxer_pkt_fields(AVFormatContext *s, AVStream *st, AVPacket *
+           st->codecpar->codec_type != AVMEDIA_TYPE_DATA &&
+           sti->cur_dts >= pkt->dts) || sti->cur_dts > pkt->dts)) {
+         av_log(s, AV_LOG_ERROR,
+-               "Application provided invalid, non monotonically increasing dts to muxer in stream %d: %s >= %s\n",
++               "compute_muxer_pkt_fields:Application provided invalid, non monotonically increasing dts to muxer in stream %d: %s >= %s\n",
+                st->index, av_ts2str(sti->cur_dts), av_ts2str(pkt->dts));
+         return AVERROR(EINVAL);
+     }
+@@ -813,14 +813,14 @@ static int prepare_input_packet(AVFormatContext *s, AVStream *st, AVPacket *pkt)
+             ((!(s->oformat->flags & AVFMT_TS_NONSTRICT) && sti->cur_dts >= pkt->dts) ||
+              sti->cur_dts > pkt->dts)) {
+             av_log(s, AV_LOG_ERROR,
+-                   "Application provided invalid, non monotonically increasing "
++                   "prepare_input_packet:Application provided invalid, non monotonically increasing "
+                    "dts to muxer in stream %d: %" PRId64 " >= %" PRId64 "\n",
+                    st->index, sti->cur_dts, pkt->dts);
+             return AVERROR(EINVAL);
+         }
+ 
+         if (pkt->pts < pkt->dts) {
+-            av_log(s, AV_LOG_ERROR, "pts %" PRId64 " < dts %" PRId64 " in stream %d\n",
++            av_log(s, AV_LOG_ERROR, "prepare_input_packet:pts %" PRId64 " < dts %" PRId64 " in stream %d\n",
+                    pkt->pts, pkt->dts, st->index);
+             return AVERROR(EINVAL);
+         }
+-- 
+2.34.1
+
